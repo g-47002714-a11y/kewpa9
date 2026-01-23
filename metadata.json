@@ -1,0 +1,7 @@
+{
+  "name": "Sistem KEW.PA-9 - Pengurusan Pinjaman Aset",
+  "description": "A comprehensive digital solution for managing KEW.PA-9 asset loan requests, featuring automated form generation, approval tracking, and smart justification assistance using Gemini AI.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
