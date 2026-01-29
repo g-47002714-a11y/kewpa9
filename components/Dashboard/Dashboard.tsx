@@ -1,5 +1,6 @@
 
-import React, { useEffect, useState, useCallback } from 'react';
+/* Fix: Added missing React hooks imports */
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User, KEWPA9Form, LoanStatus } from '../../types';
 import { storageService } from '../../services/storageService';
@@ -18,7 +19,6 @@ interface Props {
 
 const formatDateDisplay = (dateStr: string) => {
   if (!dateStr) return '-';
-  // Ambil bahagian tarikh sahaja jika ia adalah ISO string (cth: 2024-01-11T...)
   const datePart = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
   const parts = datePart.split('-');
   if (parts.length !== 3) return dateStr;
@@ -92,7 +92,6 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
       setIsSyncing(false);
       return userForms;
     } catch (e) {
-      console.error(e);
       setLoading(false);
       setIsSyncing(false);
       return [];
@@ -110,9 +109,7 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
   }, [user.id]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      loadForms();
-    }, 15000);
+    const interval = setInterval(() => { loadForms(); }, 15000);
     return () => clearInterval(interval);
   }, [loadForms]);
 
@@ -126,10 +123,12 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
     }
   };
 
-  const filteredForms = forms.filter(f => 
-    f.assetName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    f.registrationNo.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredForms = forms.filter(f => {
+    const name = String(f.assetName || '').toLowerCase();
+    const reg = String(f.registrationNo || '').toLowerCase();
+    const search = searchQuery.toLowerCase();
+    return name.includes(search) || reg.includes(search);
+  }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const getStatusBadge = (status: LoanStatus) => {
     const styles = {
@@ -150,21 +149,13 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
     return (
       <div className="h-screen flex flex-col items-center justify-center space-y-4 bg-slate-50">
         <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px]">Menghubung ke Awan...</p>
+        <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px]">Menyusun Dashboard...</p>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 relative">
-      <div className="fixed top-20 right-4 z-50 w-full max-w-sm pointer-events-none">
-        <div className="flex flex-col items-end">
-          {notifications.map(n => (
-            <Toast key={n.id} notification={n} onDismiss={dismissNotification} />
-          ))}
-        </div>
-      </div>
-
       <header className="bg-white border-b border-slate-100 sticky top-0 z-10 backdrop-blur-md bg-white/80">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -179,7 +170,7 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
               <p className="text-sm font-bold text-slate-800 leading-none mb-1">{user.name}</p>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{user.department}</p>
             </div>
-            <button onClick={onLogout} className="text-slate-300 hover:text-rose-500 p-2 transition-colors">
+            <button onClick={onLogout} title="Log Keluar" className="text-slate-300 hover:text-rose-500 p-2 transition-colors">
               <i className="fas fa-power-off"></i>
             </button>
           </div>
@@ -190,8 +181,8 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           <div className="lg:col-span-2 bg-slate-900 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden">
             <div className="relative z-10">
-              <h2 className="text-3xl font-bold mb-2">Pinjaman Digital</h2>
-              <p className="text-slate-400 text-sm mb-6 max-w-md italic">"{aiSummary}"</p>
+              <h2 className="text-3xl font-bold mb-2 tracking-tighter uppercase">Pinjaman Digital</h2>
+              <p className="text-slate-400 text-sm mb-6 max-w-md italic opacity-80">"{aiSummary}"</p>
               <Link to="/form/new" className="inline-flex items-center space-x-3 bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-3 rounded-2xl font-bold transition-all shadow-lg active:scale-95">
                 <i className="fas fa-plus-circle"></i>
                 <span>Mohon Pinjaman Baru</span>
@@ -199,47 +190,58 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
             </div>
           </div>
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-200">
-             <h3 className="font-bold text-slate-800 mb-4">Ringkasan Status</h3>
-             <div className="space-y-4 text-sm">
+             <h3 className="font-bold text-slate-800 mb-4 uppercase text-xs tracking-widest text-slate-400">Ringkasan Status</h3>
+             <div className="space-y-4 text-sm font-bold">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Dalam Pinjaman</span>
-                  <span className="font-bold text-emerald-600">{forms.filter(f => f.status === LoanStatus.APPROVED).length}</span>
+                  <span className="text-slate-400 font-medium">Dalam Pinjaman</span>
+                  <span className="text-emerald-600">{forms.filter(f => f.status === LoanStatus.APPROVED).length} Aset</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Perlu Bincang</span>
-                  <span className="font-bold text-rose-600">{forms.filter(f => f.status === LoanStatus.REJECTED).length}</span>
+                  <span className="text-slate-400 font-medium">Belum Dipulangkan</span>
+                  <span className="text-amber-600">{forms.filter(f => f.status === LoanStatus.APPROVED || f.status === LoanStatus.RETURNING).length} Borang</span>
                 </div>
              </div>
           </div>
         </div>
 
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50/50 border-b border-slate-100">
+          <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
+            <table className="w-full text-left min-w-[700px]">
+              <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
-                  <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Aset</th>
-                  <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Tarikh</th>
-                  <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Status</th>
-                  <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Tindakan</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Butiran Pinjaman (Aset)</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Tempoh</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Tindakan</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredForms.map(form => (
+                {filteredForms.length === 0 ? (
+                   <tr><td colSpan={4} className="px-8 py-10 text-center text-slate-300 italic uppercase font-bold text-xs">Tiada rekod pinjaman dijumpai.</td></tr>
+                ) : filteredForms.map(form => (
                   <tr key={form.id} className="group hover:bg-slate-50/50">
                     <td className="px-8 py-5">
-                      <p className="font-bold text-slate-800">{form.assetName}</p>
-                      <p className="text-[10px] text-slate-400 font-mono font-bold">{form.registrationNo}</p>
-                      {form.status === LoanStatus.REJECTED && form.remarks && (
-                        <div className="mt-2 bg-rose-50 border border-rose-100 p-2 rounded-lg text-[10px] text-rose-700">
-                          <i className="fas fa-comment-alt mr-2"></i>
-                          <strong>Nota Admin:</strong> {form.remarks}
+                      <div className="flex items-start space-x-3">
+                        <div className="bg-slate-100 p-2 rounded-xl text-slate-400 text-xs">
+                          <i className="fas fa-boxes"></i>
                         </div>
-                      )}
+                        <div>
+                          <p className="font-bold text-slate-800 leading-tight">
+                            {form.items && form.items.length > 0 
+                              ? `${form.items[0].name}${form.items.length > 1 ? ` (+${form.items.length - 1} aset lain)` : ''}`
+                              : String(form.assetName || '-')
+                            }
+                          </p>
+                          <p className="text-[10px] text-indigo-500 font-mono font-bold">
+                            {String(form.registrationNo || '').split(',')[0]}
+                            {String(form.registrationNo || '').includes(',') ? '...' : ''}
+                          </p>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-8 py-5 text-center">
                       <p className="text-xs font-bold text-slate-700">{formatDateDisplay(form.dateOut)}</p>
-                      <p className="text-[10px] text-slate-400 uppercase italic">Hingga {formatDateDisplay(form.dateExpectedIn)}</p>
+                      <p className="text-[10px] text-slate-400 uppercase italic">Sehingga {formatDateDisplay(form.dateExpectedIn)}</p>
                     </td>
                     <td className="px-8 py-5 text-center">
                       {getStatusBadge(form.status)}
@@ -249,16 +251,16 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
                         {form.status === LoanStatus.APPROVED && (
                           <button 
                             onClick={() => navigate(`/form/edit/${form.id}?action=return`)}
-                            className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-indigo-700 shadow-sm"
+                            className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-black hover:bg-indigo-700 shadow-lg transition-all active:scale-95 whitespace-nowrap"
                           >
-                            <i className="fas fa-undo mr-1"></i> Pulang Aset
+                            PULANG ASET
                           </button>
                         )}
-                        <Link to={`/form/print/${form.id}`} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition-all">
+                        <Link to={`/form/print/${form.id}`} title="Cetak Borang" className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition-all border border-slate-100 flex-shrink-0">
                           <i className="fas fa-print text-sm"></i>
                         </Link>
-                        {form.status !== LoanStatus.COMPLETED && (
-                          <button onClick={() => handleDelete(form.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600">
+                        {form.status === LoanStatus.PENDING && (
+                          <button onClick={() => handleDelete(form.id)} className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-300 hover:bg-rose-50 hover:text-rose-600 transition-all flex-shrink-0">
                             <i className="fas fa-trash-alt text-sm"></i>
                           </button>
                         )}
@@ -271,6 +273,12 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
           </div>
         </div>
       </main>
+      
+      <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end pointer-events-none">
+        {notifications.map(n => (
+          <Toast key={n.id} notification={n} onDismiss={dismissNotification} />
+        ))}
+      </div>
     </div>
   );
 };

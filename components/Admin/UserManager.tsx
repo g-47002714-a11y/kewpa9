@@ -72,16 +72,12 @@ const UserManager: React.FC = () => {
 
   const initiateDelete = (e: React.MouseEvent, userId: string) => {
     e.preventDefault(); e.stopPropagation();
-    console.log("Peringkat 1: Sedia untuk padam", userId);
     setConfirmDeleteId(userId);
-    // Batalkan mod sahkan selepas 3 saat jika tidak diklik
     setTimeout(() => setConfirmDeleteId(null), 3000);
   };
 
   const executeDelete = async (e: React.MouseEvent, user: User) => {
     e.preventDefault(); e.stopPropagation();
-    console.log("Peringkat 2: Memulakan pemadaman kekal", user.email);
-    
     if (isUserProtected(user)) {
       alert("Tindakan disekat.");
       setConfirmDeleteId(null);
@@ -93,7 +89,6 @@ const UserManager: React.FC = () => {
       await storageService.deleteUser(user.id);
       setUsers(prev => prev.filter(u => u.id !== user.id));
       setConfirmDeleteId(null);
-      console.log("Berjaya padam!");
     } catch (e) {
       alert("Ralat Cloud: Gagal padam.");
     } finally {
@@ -128,8 +123,8 @@ const UserManager: React.FC = () => {
 
       <main className="max-w-7xl mx-auto p-4 md:p-8">
         <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
+            <table className="w-full text-left border-collapse min-w-[850px]">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
                   <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Kakitangan</th>
@@ -174,20 +169,18 @@ const UserManager: React.FC = () => {
 
                       <td className="px-8 py-6">
                         <div className="flex items-center justify-end space-x-3">
-                          {/* BUTTON: VERIFY */}
                           <button
                             onClick={(e) => handleToggleVerify(e, user)}
-                            className={`relative z-10 px-4 py-2.5 rounded-2xl text-[10px] font-black transition-all active:scale-90 border ${
+                            className={`relative z-10 px-4 py-2.5 rounded-2xl text-[10px] font-black transition-all active:scale-90 border whitespace-nowrap ${
                               isVerified ? 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50' : 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-100 hover:bg-emerald-700'
                             }`}
                           >
                             {isProcessing ? <i className="fas fa-spinner animate-spin"></i> : isVerified ? 'NYAH-SAH' : 'SAHKAN'}
                           </button>
 
-                          {/* BUTTON: TOGGLE ADMIN */}
                           <button
                             onClick={(e) => handleToggleAdmin(e, user)}
-                            className={`relative z-10 px-4 py-2.5 rounded-2xl text-[10px] font-black transition-all active:scale-90 border ${
+                            className={`relative z-10 px-4 py-2.5 rounded-2xl text-[10px] font-black transition-all active:scale-90 border whitespace-nowrap ${
                               isProtected ? 'bg-slate-50 text-slate-200 border-slate-100 cursor-not-allowed' :
                               isAdmin ? 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50' : 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100 hover:bg-indigo-700'
                             }`}
@@ -195,22 +188,21 @@ const UserManager: React.FC = () => {
                             {isAdmin ? 'TURUN' : 'NAIK'}
                           </button>
 
-                          {/* BUTTON: DELETE (INLINE CONFIRMATION) */}
                           {isProtected ? (
-                            <div className="w-11 h-11 flex items-center justify-center text-slate-200 border border-slate-100 rounded-2xl bg-slate-50 cursor-not-allowed">
+                            <div className="w-11 h-11 flex items-center justify-center text-slate-200 border border-slate-100 rounded-2xl bg-slate-50 cursor-not-allowed flex-shrink-0">
                               <i className="fas fa-lock text-xs"></i>
                             </div>
                           ) : isConfirming ? (
                             <button
                               onClick={(e) => executeDelete(e, user)}
-                              className="relative z-50 bg-rose-600 text-white px-4 py-2.5 rounded-2xl text-[10px] font-black animate-pulse shadow-xl shadow-rose-200 border border-rose-600 active:scale-95"
+                              className="relative z-50 bg-rose-600 text-white px-4 py-2.5 rounded-2xl text-[10px] font-black animate-pulse shadow-xl shadow-rose-200 border border-rose-600 active:scale-95 whitespace-nowrap"
                             >
                               SAHKAN?
                             </button>
                           ) : (
                             <button
                               onClick={(e) => initiateDelete(e, user.id)}
-                              className="relative z-10 w-11 h-11 flex items-center justify-center rounded-2xl bg-rose-50 text-rose-500 border border-rose-100 hover:bg-rose-600 hover:text-white transition-all active:scale-90 shadow-sm"
+                              className="relative z-10 w-11 h-11 flex items-center justify-center rounded-2xl bg-rose-50 text-rose-500 border border-rose-100 hover:bg-rose-600 hover:text-white transition-all active:scale-90 shadow-sm flex-shrink-0"
                             >
                               <i className={`fas ${isProcessing ? 'fa-spinner animate-spin' : 'fa-trash-alt'} text-sm`}></i>
                             </button>

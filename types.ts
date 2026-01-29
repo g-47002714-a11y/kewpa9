@@ -26,14 +26,21 @@ export interface Asset {
   createdAt: string;
 }
 
+export interface AssetItem {
+  name: string;
+  regNo: string;
+}
+
 export interface KEWPA9Form {
   id: string;
   userId: string;
-  assetName: string;
-  registrationNo: string;
+  items: AssetItem[]; // List of assets for this loan
+  assetName: string; // Kept for sheet compatibility (joined names)
+  registrationNo: string; // Kept for sheet compatibility (joined numbers)
   serialNo: string;
   purpose: string;
   locationTo: string;
+  coe?: string;
   dateOut: string;
   dateExpectedIn: string;
   dateActualIn?: string;
@@ -42,16 +49,16 @@ export interface KEWPA9Form {
   
   // Signatures & Approval
   borrowerName?: string;
-  signature?: string; // Borrower Loan Signature
+  signature?: string;
   
   approverName?: string;
   approverDate?: string;
-  adminSignature?: string; // Admin Approval Signature
+  adminSignature?: string;
   
-  returnUserSignature?: string; // Borrower Return Signature
-  returnAdminSignature?: string; // Admin Receipt Signature
+  returnUserSignature?: string;
+  returnAdminSignature?: string;
   
-  remarks?: string; // Admin comments for rejection
+  remarks?: string;
 }
 
 export interface AuthState {

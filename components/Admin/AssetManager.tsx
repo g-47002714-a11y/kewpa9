@@ -131,8 +131,8 @@ const AssetManager: React.FC = () => {
             </div>
           </div>
           
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
+          <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
+            <table className="w-full text-left min-w-[800px]">
               <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-100">
                 <tr>
                   <th className="px-8 py-5 w-24">QR</th>
@@ -166,7 +166,7 @@ const AssetManager: React.FC = () => {
                         </button>
                       </td>
                       <td className="px-8 py-4">
-                        <span className="font-mono text-xs text-indigo-600 font-bold bg-indigo-50 px-2 py-1 rounded-md">{asset.registrationNo}</span>
+                        <span className="font-mono text-xs text-indigo-600 font-bold bg-indigo-50 px-2 py-1 rounded-md whitespace-nowrap">{asset.registrationNo}</span>
                       </td>
                       <td className="px-8 py-4 text-sm font-bold text-slate-800">{asset.description}</td>
                       <td className="px-8 py-4">
@@ -186,7 +186,7 @@ const AssetManager: React.FC = () => {
                       <td className="px-8 py-4 text-right">
                         <button 
                           onClick={() => handleDelete(asset.id)}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:bg-rose-50 hover:text-rose-600 transition-all"
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:bg-rose-50 hover:text-rose-600 transition-all flex-shrink-0"
                         >
                           <i className="fas fa-trash-alt text-sm"></i>
                         </button>
@@ -200,7 +200,6 @@ const AssetManager: React.FC = () => {
         </div>
       </main>
 
-      {/* QR Code Modal */}
       {selectedQR && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4 no-print">
           <div className="bg-white rounded-[3rem] shadow-2xl max-w-sm w-full p-10 text-center animate-in zoom-in duration-300">

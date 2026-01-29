@@ -1,17 +1,28 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { KEWPA9Form, User } from '../../types';
+import { KEWPA9Form, User, LoanStatus, AssetItem } from '../../types';
 import { storageService } from '../../services/storageService';
 
-const formatDateDisplay = (dateStr: string) => {
-  if (!dateStr) return '-';
-  // Ambil bahagian tarikh sahaja sebelum 'T' jika ia adalah ISO string (cth: 2024-01-11T...)
+const formatDateDisplay = (dateStr: string | undefined) => {
+  if (!dateStr || dateStr === '-' || dateStr === '') return '';
   const datePart = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
   const parts = datePart.split('-');
   if (parts.length !== 3) return dateStr;
-  const [year, month, day] = parts;
-  return `${day}/${month}/${year}`;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+};
+
+// Pemetaan Nama Pengeluar mengikut CoE (Tagging Admin)
+const COE_ADMINS: Record<string, string> = {
+  "CoE SENGGARANG": "MOHD SA'ARI BIN MOHD SALLEH",
+  "CoE PARIT RAJA": "MOHD RAHIMI BIN ABD TALIB",
+  "CoE AIR HITAM": "TIADA",
+  "CoE SERI MEDAN": "ZABIDI BIN SUKUAN",
+  "CoE PENGGARAM": "ROSLAN BIN RAMLI",
+  "CoE TONGKANG PECHAH": "NORAHSIKIN BINTI SALIM",
+  "CoE YONG PENG": "NAZARUDIN BIN MUHAMMAD",
+  "CoE PARIT SULONG": "ZUL AZRI BIN MISTAR",
+  "CoE BAGAN": "FAZILAH BINTI MISRI"
 };
 
 const PrintPreview: React.FC = () => {
@@ -19,186 +30,267 @@ const PrintPreview: React.FC = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState<KEWPA9Form | null>(null);
   const [borrower, setBorrower] = useState<User | null>(null);
+  const [isSyncing, setIsSyncing] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
-      const allForms = await storageService.getForms();
-      const existing = allForms.find(f => f.id === id);
-      if (existing) {
-        setForm(existing);
-        const users = await storageService.getUsers();
-        const user = users.find(u => u.id === existing.userId);
-        if (user) setBorrower(user);
+      // 1. Check Cache
+      const localData = localStorage.getItem("kewpa9_forms_cache");
+      if (localData) {
+        try {
+          const localForms: KEWPA9Form[] = JSON.parse(localData);
+          const found = localForms.find(f => f.id === id);
+          if (found) {
+            setForm(found);
+            const session = localStorage.getItem('kewpa9_session');
+            if (session) {
+              const currentUser = JSON.parse(session);
+              if (currentUser.id === found.userId) setBorrower(currentUser);
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 2. Sync Cloud
+      try {
+        const [allForms, allUsers] = await Promise.all([
+          storageService.getForms(),
+          storageService.getUsers()
+        ]);
+
+        const latestForm = allForms.find(f => f.id === id);
+        if (latestForm) {
+          setForm(latestForm);
+          const user = allUsers.find(u => u.id === latestForm.userId);
+          if (user) setBorrower(user);
+        }
+      } catch (err) {
+      } finally {
+        setIsSyncing(false);
       }
     };
+    
     fetchData();
   }, [id]);
 
-  if (!form || !borrower) return <div className="p-8">Memuatkan borang...</div>;
+  const renderSignature = (sigData: any) => {
+    if (!sigData || sigData === '-' || sigData === 'undefined' || sigData === '') {
+      return <span className="text-[7px] text-slate-300 italic">Tiada rekod tandatangan</span>;
+    }
+    
+    // 1. Tukar ke string dan bersihkan whitespace
+    let cleanSig = String(sigData).trim();
+    
+    // 2. Buang petikan luar jika ada (cth: "data:image...")
+    if (cleanSig.startsWith('"')) cleanSig = cleanSig.substring(1);
+    if (cleanSig.endsWith('"')) cleanSig = cleanSig.substring(0, cleanSig.length - 1);
+    
+    // 3. Buang escape character backslash yang ditambah oleh JSON stringify
+    cleanSig = cleanSig.replace(/\\/g, ''); 
+    
+    // 4. Validasi panjang (base64 signature biasanya > 1000 aksara)
+    if (cleanSig.length < 50) return <span className="text-[7px] text-slate-300 italic">Data tidak sah</span>;
+
+    return (
+      <div className="w-full h-full flex items-center justify-center p-0.5">
+        <img 
+          src={cleanSig} 
+          alt="Sig" 
+          className="max-w-full max-h-full object-contain block" 
+          style={{ mixBlendMode: 'multiply' }}
+          onError={(e) => {
+            // Jika gambar gagal dimuat, sorokkan elemen ini
+            (e.target as HTMLImageElement).style.opacity = '0';
+          }}
+        />
+      </div>
+    );
+  };
+
+  if (!form) return (
+    <div className="h-screen flex flex-col items-center justify-center bg-slate-50">
+      <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  );
+
+  const isApproved = form.status !== LoanStatus.PENDING && form.status !== LoanStatus.REJECTED;
+  const isReturningOrDone = form.status === LoanStatus.RETURNING || form.status === LoanStatus.COMPLETED;
+  const isCompleted = form.status === LoanStatus.COMPLETED;
+  
+  // Ambil senarai item. Jika dalam format string (dari Sheets), parse kepada Array.
+  let itemsToRender: AssetItem[] = [];
+  try {
+    if (Array.isArray(form.items)) {
+      itemsToRender = form.items;
+    } else if (typeof form.items === 'string' && (form.items as string).startsWith('[')) {
+      itemsToRender = JSON.parse(form.items);
+    }
+  } catch (e) {
+    console.error("Gagal parse items:", e);
+  }
+
+  // Jika tiada items (rekod lama), gunakan data gabungan sebagai satu row
+  if (itemsToRender.length === 0) {
+    const names = String(form.assetName || '-').split(', ');
+    const regs = String(form.registrationNo || '-').split(', ');
+    
+    // Cuba pecahkan balik jika jumlah sepadan
+    if (names.length === regs.length && names.length > 0) {
+      itemsToRender = names.map((name, i) => ({ name, regNo: regs[i] }));
+    } else {
+      itemsToRender = [{ name: form.assetName || '-', regNo: form.registrationNo || '-' }];
+    }
+  }
+
+  // Tentukan Nama Pengeluar berdasarkan CoE
+  const pengeluarName = form.coe ? (COE_ADMINS[form.coe] || '-') : '-';
 
   return (
     <div className="bg-slate-100 min-h-screen py-10 px-4">
-      {/* Control Panel (Hidden in print) */}
-      <div className="max-w-[24cm] mx-auto no-print mb-6 flex justify-between items-center">
-        <button 
-          onClick={() => navigate('/')}
-          className="bg-white px-4 py-2 rounded-lg shadow-sm text-slate-600 hover:text-indigo-600 flex items-center space-x-2 border border-slate-200"
-        >
-          <i className="fas fa-chevron-left"></i>
-          <span>Tutup</span>
+      <div className="max-w-[21cm] mx-auto no-print mb-6 flex justify-between items-center">
+        <button onClick={() => navigate('/')} className="bg-white px-4 py-2 rounded-lg border font-bold text-slate-600 shadow-sm hover:bg-slate-50 flex items-center">
+          <i className="fas fa-chevron-left mr-2"></i>Kembali
         </button>
-        <button 
-          onClick={() => window.print()}
-          className="bg-indigo-600 text-white px-6 py-2 rounded-lg shadow-md font-bold flex items-center space-x-2"
-        >
-          <i className="fas fa-print"></i>
-          <span>Cetak Sekarang</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          {isSyncing && <span className="text-[10px] font-black text-indigo-500 animate-pulse uppercase bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100">Syncing...</span>}
+          <button onClick={() => window.print()} className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg hover:bg-emerald-700 active:scale-95">
+            <i className="fas fa-print mr-2"></i>Cetak KEW.PA-9
+          </button>
+        </div>
       </div>
 
-      {/* Official Form Area */}
-      <div className="max-w-[24cm] mx-auto bg-white shadow-2xl p-[1cm] min-h-[29.7cm] text-black text-[11px] leading-tight print:shadow-none print:p-0">
-        <div className="text-center font-bold text-sm mb-4 uppercase">BORANG PERMOHONAN PERGERAKAN/ PINJAMAN ASET ALIH</div>
+      <div className="max-w-[21cm] mx-auto bg-white p-[1.5cm] min-h-[29.7cm] text-black text-[10px] leading-tight print:p-0 print:shadow-none shadow-2xl">
+        <div className="text-center font-bold text-xs mb-8 uppercase">BORANG PERMOHONAN PERGERAKAN/ PINJAMAN ASET ALIH (KEW.PA-9)</div>
 
-        {/* Top Info Table */}
         <table className="w-full border-collapse border border-black mb-6">
           <tbody>
             <tr>
-              <td className="border border-black p-2 w-[18%] font-bold text-rose-600">Nama Pemohon :</td>
-              <td className="border border-black p-2 w-[32%]">{borrower.name}</td>
-              <td className="border border-black p-2 w-[18%] font-bold text-rose-600">Tujuan :</td>
-              <td className="border border-black p-2 w-[32%]">{form.purpose}</td>
+              <td className="border border-black p-2 w-[20%] font-bold uppercase bg-slate-50">Nama Pemohon:</td>
+              <td className="border border-black p-2 w-[30%] font-bold">{borrower?.name || form.borrowerName || '-'}</td>
+              <td className="border border-black p-2 w-[20%] font-bold uppercase bg-slate-50">Tujuan:</td>
+              <td className="border border-black p-2 w-[30%]">{form.purpose}</td>
             </tr>
             <tr>
-              <td className="border border-black p-2 font-bold text-rose-600">Jawatan :</td>
-              <td className="border border-black p-2">{borrower.designation}</td>
-              <td className="border border-black p-2 font-bold text-rose-600">Tempat Digunakan:</td>
+              <td className="border border-black p-2 font-bold uppercase bg-slate-50">Jawatan:</td>
+              <td className="border border-black p-2">{borrower?.designation || '-'}</td>
+              <td className="border border-black p-2 font-bold uppercase bg-slate-50">Tempat Digunakan:</td>
               <td className="border border-black p-2">{form.locationTo}</td>
             </tr>
             <tr>
-              <td className="border border-black p-2 font-bold text-rose-600">Bahagian :</td>
-              <td className="border border-black p-2">{borrower.department}</td>
-              <td className="border border-black p-2 font-bold text-rose-600">Nama Pengeluar:</td>
-              <td className="border border-black p-2">{form.approverName || '-'}</td>
+              <td className="border border-black p-2 font-bold uppercase bg-slate-50">Bahagian:</td>
+              <td className="border border-black p-2">{borrower?.department || '-'}</td>
+              <td className="border border-black p-2 font-bold uppercase bg-slate-50">Nama Pengeluar:</td>
+              <td className="border border-black p-2 font-bold">{pengeluarName}</td>
             </tr>
           </tbody>
         </table>
 
-        {/* Main Asset Table */}
-        <table className="w-full border-collapse border border-black mb-6">
-          <thead className="bg-slate-200 text-center font-bold">
+        <table className="w-full border-collapse border border-black mb-6 text-[9px]">
+          <thead className="bg-slate-50 text-center font-bold">
             <tr>
-              <td rowSpan={2} className="border border-black p-2 w-[4%]">Bil.</td>
-              <td rowSpan={2} className="border border-black p-2 w-[12%]">No. Siri Pendaftaran</td>
-              <td rowSpan={2} className="border border-black p-2 w-[18%]">Keterangan Aset</td>
-              <td colSpan={2} className="border border-black p-1">Tarikh</td>
-              <td rowSpan={2} className="border border-black p-1 w-[10%] text-rose-600">(Lulus/ Tidak Lulus)</td>
-              <td colSpan={2} className="border border-black p-1">Tarikh</td>
-              <td rowSpan={2} className="border border-black p-2 w-[10%]">Catatan</td>
+              <td rowSpan={2} className="border border-black p-1 w-[5%]">Bil</td>
+              <td rowSpan={2} className="border border-black p-1 w-[20%]">No. Siri Pendaftaran</td>
+              <td rowSpan={2} className="border border-black p-1">Keterangan Aset</td>
+              <td colSpan={2} className="border border-black p-1">Tarikh Pinjam</td>
+              <td rowSpan={2} className="border border-black p-1 w-[8%]">Lulus</td>
+              <td colSpan={2} className="border border-black p-1">Tarikh Pulang</td>
             </tr>
             <tr>
-              <td className="border border-black p-1 w-[8%]">Dipinjam</td>
-              <td className="border border-black p-1 w-[8%]">Dijangka Pulang</td>
-              <td className="border border-black p-1 w-[8%]">Dipulangkan</td>
-              <td className="border border-black p-1 w-[8%]">Diterima</td>
+              <td className="border border-black p-1 w-[10%]">Mula</td>
+              <td className="border border-black p-1 w-[10%]">Jangka</td>
+              <td className="border border-black p-1 w-[10%]">Sebenar</td>
+              <td className="border border-black p-1 w-[10%]">Sahkan</td>
             </tr>
           </thead>
           <tbody>
-            {/* Row 1 - Data */}
-            <tr className="min-h-[40px]">
-              <td className="border border-black p-2 text-center">1</td>
-              <td className="border border-black p-2 font-mono text-[10px]">{form.registrationNo}</td>
-              <td className="border border-black p-2">{form.assetName}</td>
-              <td className="border border-black p-2 text-center">{formatDateDisplay(form.dateOut)}</td>
-              <td className="border border-black p-2 text-center">{formatDateDisplay(form.dateExpectedIn)}</td>
-              <td className="border border-black p-2 text-center font-bold">
-                {form.status === 'APPROVED' || form.status === 'COMPLETED' || form.status === 'RETURNING' ? 'LULUS' : 
-                 form.status === 'REJECTED' ? 'TIDAK LULUS' : ''}
-              </td>
-              <td className="border border-black p-2 text-center">{form.dateActualIn ? formatDateDisplay(form.dateActualIn) : '-'}</td>
-              <td className="border border-black p-2 text-center">{form.status === 'COMPLETED' ? formatDateDisplay(form.approverDate || '') : '-'}</td>
-              <td className="border border-black p-2 italic">{form.remarks || ''}</td>
-            </tr>
-            {/* Empty rows to match the reference look */}
-            {[...Array(8)].map((_, i) => (
-              <tr key={i} className="h-8">
-                <td className="border border-black p-2"></td>
-                <td className="border border-black p-2"></td>
-                <td className="border border-black p-2"></td>
-                <td className="border border-black p-2"></td>
-                <td className="border border-black p-2"></td>
-                <td className="border border-black p-2"></td>
-                <td className="border border-black p-2"></td>
-                <td className="border border-black p-2"></td>
-                <td className="border border-black p-2"></td>
+            {itemsToRender.map((item, idx) => (
+              <tr key={idx} className="h-10">
+                <td className="border border-black p-1 text-center font-bold">{idx + 1}</td>
+                <td className="border border-black p-1 font-mono text-[8px]">{item.regNo}</td>
+                <td className="border border-black p-1 font-bold">{item.name}</td>
+                <td className="border border-black p-1 text-center">{formatDateDisplay(form.dateOut)}</td>
+                <td className="border border-black p-1 text-center">{formatDateDisplay(form.dateExpectedIn)}</td>
+                <td className="border border-black p-1 text-center font-bold">
+                  {isApproved ? 'YA' : (form.status === LoanStatus.REJECTED ? 'TIDAK' : '')}
+                </td>
+                <td className="border border-black p-1 text-center">{formatDateDisplay(form.dateActualIn)}</td>
+                <td className="border border-black p-1 text-center">{isCompleted ? formatDateDisplay(form.approverDate) : ''}</td>
+              </tr>
+            ))}
+            {/* Pad the table with a few empty rows if less than 3 items total */}
+            {itemsToRender.length < 3 && Array(3 - itemsToRender.length).fill(0).map((_, i) => (
+              <tr key={`empty-${i}`} className="h-10">
+                <td className="border border-black p-1 text-center font-bold text-slate-200">{itemsToRender.length + i + 1}</td>
+                <td className="border border-black p-1"></td>
+                <td className="border border-black p-1"></td>
+                <td className="border border-black p-1"></td>
+                <td className="border border-black p-1"></td>
+                <td className="border border-black p-1"></td>
+                <td className="border border-black p-1"></td>
+                <td className="border border-black p-1"></td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        {/* Signature Grid (4 Quadrants) */}
-        <div className="grid grid-cols-2 border border-black">
-          {/* Box 1: Peminjam */}
-          <div className="border border-black p-4 min-h-[140px] flex flex-col justify-between">
+        <div className="grid grid-cols-2 border border-black text-[9px] uppercase">
+          <div className="border border-black p-4 flex flex-col justify-between min-h-[140px]">
             <div>
-              <div className="border-b border-black border-dotted mb-1 w-full flex items-end min-h-[40px] justify-center">
-                {form.signature && <img src={form.signature} alt="Sign" className="max-h-12 mix-blend-multiply" />}
+              <div className="h-14 w-full border-b border-dotted border-black mb-2 overflow-hidden flex items-center justify-center">
+                {renderSignature(form.signature)}
               </div>
-              <p className="text-rose-600 font-bold">(Tandatangan Peminjam)</p>
+              <p className="font-bold">(Tandatangan Peminjam)</p>
             </div>
-            <div className="space-y-1 mt-2">
-              <p><span className="text-rose-600 font-bold">Nama :</span> {borrower.name}</p>
-              <p><span className="text-rose-600 font-bold">Jawatan :</span> {borrower.designation}</p>
-              <p><span className="text-rose-600 font-bold">Tarikh :</span> {formatDateDisplay(form.createdAt)}</p>
+            <div className="mt-2 text-[8px]">
+              <p><strong>Nama:</strong> {borrower?.name || form.borrowerName}</p>
+              <p><strong>Tarikh:</strong> {formatDateDisplay(form.createdAt)}</p>
             </div>
           </div>
 
-          {/* Box 2: Pelulus */}
-          <div className="border border-black p-4 min-h-[140px] flex flex-col justify-between">
+          <div className="border border-black p-4 flex flex-col justify-between min-h-[140px]">
             <div>
-              <div className="border-b border-black border-dotted mb-1 w-full flex items-end min-h-[40px] justify-center">
-                {form.adminSignature && <img src={form.adminSignature} alt="Admin Sign" className="max-h-12 mix-blend-multiply" />}
+              <div className="h-14 w-full border-b border-dotted border-black mb-2 overflow-hidden flex items-center justify-center">
+                {renderSignature(form.adminSignature)}
               </div>
-              <p className="text-rose-600 font-bold">(Tandatangan Pelulus)</p>
+              <p className="font-bold">(Tandatangan Pelulus - Admin)</p>
             </div>
-            <div className="space-y-1 mt-2">
-              <p><span className="text-rose-600 font-bold">Nama :</span> {form.approverName || ''}</p>
-              <p><span className="text-rose-600 font-bold">Jawatan :</span> {form.approverName ? 'Pegawai Aset' : ''}</p>
-              <p><span className="text-rose-600 font-bold">Tarikh :</span> {form.approverDate ? formatDateDisplay(form.approverDate) : ''}</p>
+            <div className="mt-2 text-[8px]">
+              <p><strong>Nama:</strong> {isApproved ? (form.approverName || 'PENTADBIR ASET') : ''}</p>
+              <p><strong>Tarikh:</strong> {isApproved ? formatDateDisplay(form.approverDate) : ''}</p>
             </div>
           </div>
 
-          {/* Box 3: Pemulang */}
-          <div className="border border-black p-4 min-h-[140px] flex flex-col justify-between">
+          <div className="border border-black p-4 flex flex-col justify-between min-h-[140px]">
             <div>
-              <div className="border-b border-black border-dotted mb-1 w-full flex items-end min-h-[40px] justify-center">
-                {form.returnUserSignature && <img src={form.returnUserSignature} alt="Return Sign" className="max-h-12 mix-blend-multiply" />}
+              <div className="h-14 w-full border-b border-dotted border-black mb-2 overflow-hidden flex items-center justify-center">
+                {renderSignature(form.returnUserSignature)}
               </div>
-              <p className="text-rose-600 font-bold">(Tandatangan Pemulang)</p>
+              <p className="font-bold">(Tandatangan Pemulang)</p>
             </div>
-            <div className="space-y-1 mt-2">
-              <p><span className="text-rose-600 font-bold">Nama :</span> {form.returnUserSignature ? borrower.name : ''}</p>
-              <p><span className="text-rose-600 font-bold">Jawatan :</span> {form.returnUserSignature ? borrower.designation : ''}</p>
-              <p><span className="text-rose-600 font-bold">Tarikh :</span> {form.dateActualIn ? formatDateDisplay(form.dateActualIn) : ''}</p>
+            <div className="mt-2 text-[8px]">
+              <p><strong>Nama:</strong> {isReturningOrDone ? (borrower?.name || form.borrowerName) : ''}</p>
+              <p><strong>Tarikh:</strong> {isReturningOrDone ? formatDateDisplay(form.dateActualIn) : ''}</p>
             </div>
           </div>
 
-          {/* Box 4: Penerima */}
-          <div className="border border-black p-4 min-h-[140px] flex flex-col justify-between">
+          <div className="border border-black p-4 flex flex-col justify-between min-h-[140px]">
             <div>
-              <div className="border-b border-black border-dotted mb-1 w-full flex items-end min-h-[40px] justify-center">
-                {form.returnAdminSignature && <img src={form.returnAdminSignature} alt="Receipt Sign" className="max-h-12 mix-blend-multiply" />}
+              <div className="h-14 w-full border-b border-dotted border-black mb-2 overflow-hidden flex items-center justify-center">
+                {renderSignature(form.returnAdminSignature)}
               </div>
-              <p className="text-rose-600 font-bold">(Tandatangan Penerima)</p>
+              <p className="font-bold">(Tandatangan Penerima - Admin)</p>
             </div>
-            <div className="space-y-1 mt-2">
-              <p><span className="text-rose-600 font-bold">Nama :</span> {form.returnAdminSignature ? form.approverName : ''}</p>
-              <p><span className="text-rose-600 font-bold">Jawatan :</span> {form.returnAdminSignature ? 'Pegawai Aset' : ''}</p>
-              <p><span className="text-rose-600 font-bold">Tarikh :</span> {form.status === 'COMPLETED' ? formatDateDisplay(form.approverDate || '') : ''}</p>
+            <div className="mt-2 text-[8px]">
+              <p><strong>Nama:</strong> {isCompleted ? (form.approverName || 'PENTADBIR ASET') : ''}</p>
+              <p><strong>Tarikh:</strong> {isCompleted ? formatDateDisplay(form.approverDate) : ''}</p>
             </div>
           </div>
         </div>
 
+        <div className="mt-10 text-[7px] italic text-slate-400 text-right flex justify-between">
+          <span>Dijana secara digital pada {new Date().toLocaleString()}</span>
+          <span>Borang KEW.PA-9 Multi-Asset ID: {form.id}</span>
+        </div>
       </div>
     </div>
   );
