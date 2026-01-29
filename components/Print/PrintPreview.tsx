@@ -73,38 +73,63 @@ const PrintPreview: React.FC = () => {
     fetchData();
   }, [id]);
 
+  /**
+   * Fungsi renderSignature yang diperkasakan (v2)
+   * Direka khas untuk membaiki data yang rosak dari Google Sheets/Cloud
+   */
   const renderSignature = (sigData: any) => {
     if (!sigData || sigData === '-' || sigData === 'undefined' || sigData === '') {
-      return <span className="text-[7px] text-slate-300 italic">Tiada rekod tandatangan</span>;
+      return <span className="text-[7px] text-slate-300 italic">Tiada tandatangan</span>;
     }
     
-    // 1. Tukar ke string dan bersihkan whitespace
-    let cleanSig = String(sigData).trim();
-    
-    // 2. Buang petikan luar jika ada (cth: "data:image...")
-    if (cleanSig.startsWith('"')) cleanSig = cleanSig.substring(1);
-    if (cleanSig.endsWith('"')) cleanSig = cleanSig.substring(0, cleanSig.length - 1);
-    
-    // 3. Buang escape character backslash yang ditambah oleh JSON stringify
-    cleanSig = cleanSig.replace(/\\/g, ''); 
-    
-    // 4. Validasi panjang (base64 signature biasanya > 1000 aksara)
-    if (cleanSig.length < 50) return <span className="text-[7px] text-slate-300 italic">Data tidak sah</span>;
+    try {
+      // A. Tukar ke string, buang ruang kosong, buang quotes dan backslashes
+      let cleanSig = String(sigData)
+        .replace(/["\\]/g, '') // Buang " dan \
+        .replace(/\s/g, '');   // Buang sebarang ruang kosong/newline
 
-    return (
-      <div className="w-full h-full flex items-center justify-center p-0.5">
-        <img 
-          src={cleanSig} 
-          alt="Sig" 
-          className="max-w-full max-h-full object-contain block" 
-          style={{ mixBlendMode: 'multiply' }}
-          onError={(e) => {
-            // Jika gambar gagal dimuat, sorokkan elemen ini
-            (e.target as HTMLImageElement).style.opacity = '0';
-          }}
-        />
-      </div>
-    );
+      // B. Pastikan ada prefix data:image
+      if (!cleanSig.startsWith('data:image')) {
+        // Jika ia nampak macam base64 tapi tiada header, kita cuba tambah
+        if (cleanSig.length > 100) {
+          cleanSig = 'data:image/jpeg;base64,' + cleanSig;
+        } else {
+          return <span className="text-[7px] text-rose-300 italic">Data terpotong (Cloud limit)</span>;
+        }
+      }
+
+      // C. Validasi panjang minimum (Base64 JPEG kualiti rendah sekurang-kurangnya ~1k karakter)
+      if (cleanSig.length < 500) {
+        return <span className="text-[7px] text-rose-300 italic">Tandatangan tidak lengkap</span>;
+      }
+
+      return (
+        <div className="w-full h-full flex items-center justify-center p-0.5">
+          <img 
+            src={cleanSig} 
+            alt="Signature" 
+            className="max-w-full max-h-full object-contain block" 
+            style={{ 
+              mixBlendMode: 'multiply',
+              imageRendering: 'auto'
+            }}
+            onError={(e) => {
+              console.error("Gagal memuatkan imej tandatangan:", cleanSig.substring(0, 50));
+              (e.target as HTMLImageElement).style.display = 'none';
+              const parent = (e.target as HTMLImageElement).parentElement;
+              if (parent) {
+                const span = document.createElement('span');
+                span.className = "text-[7px] text-rose-400 italic";
+                span.innerText = "Ralat Format Imej";
+                parent.appendChild(span);
+              }
+            }}
+          />
+        </div>
+      );
+    } catch (err) {
+      return <span className="text-[7px] text-rose-300 italic">Ralat data</span>;
+    }
   };
 
   if (!form) return (
@@ -117,7 +142,6 @@ const PrintPreview: React.FC = () => {
   const isReturningOrDone = form.status === LoanStatus.RETURNING || form.status === LoanStatus.COMPLETED;
   const isCompleted = form.status === LoanStatus.COMPLETED;
   
-  // Ambil senarai item. Jika dalam format string (dari Sheets), parse kepada Array.
   let itemsToRender: AssetItem[] = [];
   try {
     if (Array.isArray(form.items)) {
@@ -129,12 +153,9 @@ const PrintPreview: React.FC = () => {
     console.error("Gagal parse items:", e);
   }
 
-  // Jika tiada items (rekod lama), gunakan data gabungan sebagai satu row
   if (itemsToRender.length === 0) {
     const names = String(form.assetName || '-').split(', ');
     const regs = String(form.registrationNo || '-').split(', ');
-    
-    // Cuba pecahkan balik jika jumlah sepadan
     if (names.length === regs.length && names.length > 0) {
       itemsToRender = names.map((name, i) => ({ name, regNo: regs[i] }));
     } else {
@@ -142,7 +163,6 @@ const PrintPreview: React.FC = () => {
     }
   }
 
-  // Tentukan Nama Pengeluar berdasarkan CoE
   const pengeluarName = form.coe ? (COE_ADMINS[form.coe] || '-') : '-';
 
   return (
@@ -217,7 +237,6 @@ const PrintPreview: React.FC = () => {
                 <td className="border border-black p-1 text-center">{isCompleted ? formatDateDisplay(form.approverDate) : ''}</td>
               </tr>
             ))}
-            {/* Pad the table with a few empty rows if less than 3 items total */}
             {itemsToRender.length < 3 && Array(3 - itemsToRender.length).fill(0).map((_, i) => (
               <tr key={`empty-${i}`} className="h-10">
                 <td className="border border-black p-1 text-center font-bold text-slate-200">{itemsToRender.length + i + 1}</td>
