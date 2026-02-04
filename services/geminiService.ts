@@ -23,10 +23,10 @@ export const geminiService = {
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Berikan satu ayat ringkasan motivasi pendek untuk pegawai yang menguruskan ${formsCount} borang pinjaman aset, di mana ${pendingCount} masih belum selesai. Gunakan nada profesional.`,
+        contents: `Berikan satu ayat motivasi profesional pendek (maksimum 15 patah perkataan) untuk seorang pegawai kerajaan yang melihat dashboard peribadinya. Dia mempunyai ${formsCount} rekod pinjaman secara keseluruhan dan ${pendingCount} daripadanya masih menunggu kelulusan admin. Gunakan Bahasa Melayu formal yang mesra.`,
       });
       /* Guideline: Access .text property directly, not as a method. */
-      return response.text?.trim() || "Selamat bertugas.";
+      return response.text?.trim() || "Selamat bertugas dan teruskan kecemerlangan.";
     } catch (error) {
       return "Selamat bertugas dan teruskan kecemerlangan.";
     }

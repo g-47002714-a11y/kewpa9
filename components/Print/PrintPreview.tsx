@@ -73,24 +73,17 @@ const PrintPreview: React.FC = () => {
     fetchData();
   }, [id]);
 
-  /**
-   * Fungsi renderSignature yang diperkasakan (v2)
-   * Direka khas untuk membaiki data yang rosak dari Google Sheets/Cloud
-   */
   const renderSignature = (sigData: any) => {
     if (!sigData || sigData === '-' || sigData === 'undefined' || sigData === '') {
       return <span className="text-[7px] text-slate-300 italic">Tiada tandatangan</span>;
     }
     
     try {
-      // A. Tukar ke string, buang ruang kosong, buang quotes dan backslashes
       let cleanSig = String(sigData)
-        .replace(/["\\]/g, '') // Buang " dan \
-        .replace(/\s/g, '');   // Buang sebarang ruang kosong/newline
+        .replace(/["\\]/g, '') 
+        .replace(/\s/g, '');   
 
-      // B. Pastikan ada prefix data:image
       if (!cleanSig.startsWith('data:image')) {
-        // Jika ia nampak macam base64 tapi tiada header, kita cuba tambah
         if (cleanSig.length > 100) {
           cleanSig = 'data:image/jpeg;base64,' + cleanSig;
         } else {
@@ -98,7 +91,6 @@ const PrintPreview: React.FC = () => {
         }
       }
 
-      // C. Validasi panjang minimum (Base64 JPEG kualiti rendah sekurang-kurangnya ~1k karakter)
       if (cleanSig.length < 500) {
         return <span className="text-[7px] text-rose-300 italic">Tandatangan tidak lengkap</span>;
       }
@@ -112,17 +104,6 @@ const PrintPreview: React.FC = () => {
             style={{ 
               mixBlendMode: 'multiply',
               imageRendering: 'auto'
-            }}
-            onError={(e) => {
-              console.error("Gagal memuatkan imej tandatangan:", cleanSig.substring(0, 50));
-              (e.target as HTMLImageElement).style.display = 'none';
-              const parent = (e.target as HTMLImageElement).parentElement;
-              if (parent) {
-                const span = document.createElement('span');
-                span.className = "text-[7px] text-rose-400 italic";
-                span.innerText = "Ralat Format Imej";
-                parent.appendChild(span);
-              }
             }}
           />
         </div>
@@ -149,9 +130,7 @@ const PrintPreview: React.FC = () => {
     } else if (typeof form.items === 'string' && (form.items as string).startsWith('[')) {
       itemsToRender = JSON.parse(form.items);
     }
-  } catch (e) {
-    console.error("Gagal parse items:", e);
-  }
+  } catch (e) {}
 
   if (itemsToRender.length === 0) {
     const names = String(form.assetName || '-').split(', ');
@@ -180,7 +159,13 @@ const PrintPreview: React.FC = () => {
       </div>
 
       <div className="max-w-[21cm] mx-auto bg-white p-[1.5cm] min-h-[29.7cm] text-black text-[10px] leading-tight print:p-0 print:shadow-none shadow-2xl">
-        <div className="text-center font-bold text-xs mb-8 uppercase">BORANG PERMOHONAN PERGERAKAN/ PINJAMAN ASET ALIH (KEW.PA-9)</div>
+        <div className="flex items-center justify-center space-x-4 mb-8">
+          <img src="logo.png" alt="Logo USTP" className="w-16 h-16 object-contain" />
+          <div className="text-center">
+            <div className="font-bold text-xs uppercase">BORANG PERMOHONAN PERGERAKAN/ PINJAMAN ASET ALIH (KEW.PA-9)</div>
+            <div className="text-[9px] font-bold text-slate-500 uppercase">Unit Sumber dan Teknologi Pendidikan (USTP) PPD Batu Pahat</div>
+          </div>
+        </div>
 
         <table className="w-full border-collapse border border-black mb-6">
           <tbody>
