@@ -1,24 +1,14 @@
 
 import { KEWPA9Form, User, Asset } from '../types';
 
-/**
- * PANDUAN STRUKTUR GOOGLE SHEETS (Helaian 'forms'):
- * Pastikan kolum di baris pertama (Header) diletakkan TEPAT seperti berikut (case-sensitive):
- * id, userId, assetName, registrationNo, serialNo, purpose, locationTo, 
- * coe, dateOut, dateExpectedIn, dateActualIn, status, createdAt,
- * borrowerName, signature, approverName, approverDate, adminSignature,
- * returnUserSignature, returnAdminSignature, remarks
- * 
- * NOTA: Gunakan tajuk kolum 'coe' (semua huruf kecil) di Google Sheets anda.
- */
-
-// GANTIKAN PAUTAN DI BAWAH DENGAN PAUTAN "WEB APP" BARU ANDA
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwsIvNruOKDpxYc-MH_SZlNggNsiwC5DeilU09Vx-suGWY_Avh5o8DBi-UNypMsuFBHRg/exec";
 const LOCAL_FORMS_KEY = "kewpa9_forms_cache";
+const LOGO_STORAGE_KEY = "kewpa9_custom_logo";
 
 const fetchFromSheets = async (sheetName: string) => {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  // Tingkatkan timeout ke 30 saat kerana Google Apps Script kadangkala mengambil masa untuk "bangun" (cold start)
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
     const response = await fetch(`${SCRIPT_URL}?sheet=${sheetName}`, {
@@ -26,13 +16,19 @@ const fetchFromSheets = async (sheetName: string) => {
     });
     clearTimeout(timeoutId);
 
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    if (!response.ok) throw new Error(`HTTP ralat! status: ${response.status}`);
     
     const data = await response.json();
     return Array.isArray(data) ? data : [];
   } catch (error: any) {
     clearTimeout(timeoutId);
-    console.error(`Gagal fetch sheet ${sheetName}:`, error);
+    
+    if (error.name === 'AbortError') {
+      console.error(`Gagal fetch sheet ${sheetName}: Masa tamat (Timeout 30s). Pelayan Google lambat bertindak.`);
+    } else {
+      console.error(`Gagal fetch sheet ${sheetName}:`, error.message || error);
+    }
+    
     return [];
   }
 };
@@ -40,17 +36,13 @@ const fetchFromSheets = async (sheetName: string) => {
 const postToSheets = async (sheetName: string, data: any, action: 'save' | 'delete' = 'save') => {
   try {
     const payload = { sheet: sheetName, action, data };
-    
-    // DEBUG: Buka console browser (F12) untuk melihat data yang dihantar
-    console.log(`[Cloud Sync] Menghantar ke Google Sheets (${sheetName}):`, payload);
-
+    // Menggunakan mode 'no-cors' adalah standard untuk menghantar data ke Google Apps Script tanpa ralat preflight
     await fetch(SCRIPT_URL, {
       method: 'POST',
-      mode: 'no-cors', // Penting untuk Google Apps Script
+      mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload),
     });
-    
     return { status: "ok" };
   } catch (error) {
     console.error(`Ralat semasa post ke ${sheetName}:`, error);
@@ -70,19 +62,18 @@ export const storageService = {
     const cloudForms = await fetchFromSheets('forms');
     const localData = localStorage.getItem(LOCAL_FORMS_KEY);
     const localForms: KEWPA9Form[] = localData ? JSON.parse(localData) : [];
-
+    
+    // Gabungkan data cloud dan local cache
     const mergedMap = new Map<string, KEWPA9Form>();
     cloudForms.forEach(f => mergedMap.set(f.id, f));
     localForms.forEach(f => mergedMap.set(f.id, f));
-
+    
     return Array.from(mergedMap.values());
   },
 
   saveForm: async (form: KEWPA9Form) => {
-    // 1. Simpan ke Cache Tempatan (Serta-merta)
     const localData = localStorage.getItem(LOCAL_FORMS_KEY);
     let localForms: KEWPA9Form[] = localData ? JSON.parse(localData) : [];
-    
     const index = localForms.findIndex(f => f.id === form.id);
     if (index >= 0) {
       localForms[index] = form;
@@ -90,8 +81,6 @@ export const storageService = {
       localForms.push(form);
     }
     localStorage.setItem(LOCAL_FORMS_KEY, JSON.stringify(localForms));
-
-    // 2. Hantar ke Google Sheets (Pastikan 'coe' ada dalam 'form' object)
     return await postToSheets('forms', form);
   },
 
@@ -111,5 +100,17 @@ export const storageService = {
     const asset = assets.find(a => a.registrationNo === registrationNo);
     if (asset) await postToSheets('assets', { ...asset, status: newStatus });
   },
-  deleteAsset: async (id: string) => postToSheets('assets', { id }, 'delete')
+  deleteAsset: async (id: string) => postToSheets('assets', { id }, 'delete'),
+
+  saveCustomLogo: (base64Data: string) => {
+    localStorage.setItem(LOGO_STORAGE_KEY, base64Data);
+    window.dispatchEvent(new Event('logoChanged'));
+  },
+  getCustomLogo: () => {
+    return localStorage.getItem(LOGO_STORAGE_KEY);
+  },
+  resetLogo: () => {
+    localStorage.removeItem(LOGO_STORAGE_KEY);
+    window.dispatchEvent(new Event('logoChanged'));
+  }
 };

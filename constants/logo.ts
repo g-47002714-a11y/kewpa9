@@ -1,6 +1,5 @@
 
-export const LOGO_DATA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEAAQMAAABmvDolAAAAA1BMVEUAAACnej3aAAAAAXRSTlMAQObYZgAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAABAKADAAQAAAABAAABAAAAAAB9667uAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMFEx0YpZ9uFAAAABl0RVh0Q29tbWVudABDcmVhdGVkIHdpdGggR0lNUFeBDhcAAAAnSURBVGje7cExAQAAAMKg9U9tCy+gAAAAAAAAAAAAAAAAAAAAAAAA4DAnAAAB9667uAAAAABJRU5ErkJggg==";
-// Nota: Di atas adalah placeholder Base64. Sila gunakan LOGO_DATA yang betul dalam implementasi sebenar 
-// atau biarkan sistem menggunakan imej yang anda muat naik.
-// Oleh kerana saya tidak boleh menjana Base64 penuh imej anda di sini, saya akan pastikan 
-// rujukan fail adalah dinamik dan betul.
+/** 
+ * LOGO USTP RINGKAS (SVG BASE64)
+ */
+export const LOGO_DATA = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0OCIgZmlsbD0iIzFhMWY0MCIvPjx0ZXh0IHg9IjUwIiB5PSI2NSIgZm9udC1mYW1pbHk9IidJbnRlcicsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjgiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iOTAwIj5VU1RQPC90ZXh0Pjwvc3ZnPg==";

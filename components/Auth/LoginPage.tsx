@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User } from '../../types';
 import { storageService } from '../../services/storageService';
+import Logo from '../UI/Logo';
 
 interface Props {
   onLogin: (user: User) => void;
@@ -72,11 +73,7 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
 
       <div className="max-w-md w-full glass-card rounded-[3rem] shadow-2xl p-10 relative z-10 border border-white/50">
         <div className="text-center mb-10">
-          <div className="inline-flex w-24 h-24 rounded-full items-center justify-center mb-6 shadow-2xl animate-float overflow-hidden bg-white border-4 border-white">
-            <img src="./logo.png" alt="USTP Logo" className="w-full h-full object-contain p-1" onError={(e) => {
-              (e.target as HTMLImageElement).src = "https://ui-avatars.com/api/?name=USTP+BP&background=4f46e5&color=fff&size=128";
-            }} />
-          </div>
+          <Logo size="xl" className="mx-auto mb-6 animate-float" />
           <h1 className="text-3xl font-black text-slate-800 tracking-tighter mb-1">USTP <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-emerald-600">KEW.PA-9</span></h1>
           <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-4">PPD Batu Pahat</p>
           <div className="inline-block px-4 py-1.5 bg-indigo-50 rounded-full">

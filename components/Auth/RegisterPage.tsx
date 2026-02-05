@@ -27,7 +27,7 @@ const RegisterPage: React.FC = () => {
 
     const cleanPassword = formData.password.trim();
     const cleanConfirm = formData.confirmPassword.trim();
-    const cleanEmail = formData.email.trim();
+    const cleanEmail = formData.email.trim().toLowerCase();
 
     if (!urlValid) {
       setError("URL Google Script tidak sah. Sila kemaskini storageService.ts");
@@ -46,22 +46,34 @@ const RegisterPage: React.FC = () => {
 
     setLoading(true);
     
-    const newUser = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: formData.name.trim(),
-      email: cleanEmail,
-      password: cleanPassword,
-      designation: formData.designation.trim(),
-      department: formData.department.trim(),
-      verified: false,
-      isAdmin: false
-    };
-
     try {
+      // SEMAKAN E-MEL UNIK
+      const existingUsers = await storageService.getUsers();
+      const emailExists = existingUsers.some(u => 
+        String(u.email).toLowerCase().trim() === cleanEmail
+      );
+
+      if (emailExists) {
+        setError("E-mel ini telah didaftarkan. Sila gunakan e-mel lain atau log masuk.");
+        setLoading(false);
+        return;
+      }
+
+      const newUser = {
+        id: Math.random().toString(36).substr(2, 9),
+        name: formData.name.trim(),
+        email: cleanEmail,
+        password: cleanPassword,
+        designation: formData.designation.trim(),
+        department: formData.department.trim(),
+        verified: false,
+        isAdmin: false
+      };
+
       await storageService.saveUser(newUser);
       setIsRegistered(true);
     } catch (e) {
-      setError("Gagal menyambung ke Google Cloud.");
+      setError("Gagal menyambung ke Google Cloud atau masalah pangkalan data.");
     } finally {
       setLoading(false);
     }
@@ -175,7 +187,7 @@ Terima kasih.`;
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12">
       <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-xl p-10 border border-slate-100">
         {error && (
-          <div className="mb-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-[10px] font-bold uppercase tracking-widest flex items-center">
+          <div className="mb-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-[10px] font-bold uppercase tracking-widest flex items-center animate-shake">
             <i className="fas fa-exclamation-triangle mr-3 text-lg"></i>
             {error}
           </div>

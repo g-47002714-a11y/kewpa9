@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { KEWPA9Form, User, LoanStatus, AssetItem } from '../../types';
 import { storageService } from '../../services/storageService';
+import Logo from '../UI/Logo';
 
 const formatDateDisplay = (dateStr: string | undefined) => {
   if (!dateStr || dateStr === '-' || dateStr === '') return '';
@@ -12,7 +13,6 @@ const formatDateDisplay = (dateStr: string | undefined) => {
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 };
 
-// Pemetaan Nama Pengeluar mengikut CoE (Tagging Admin)
 const COE_ADMINS: Record<string, string> = {
   "CoE SENGGARANG": "MOHD SA'ARI BIN MOHD SALLEH",
   "CoE PARIT RAJA": "MOHD RAHIMI BIN ABD TALIB",
@@ -34,7 +34,6 @@ const PrintPreview: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      // 1. Check Cache
       const localData = localStorage.getItem("kewpa9_forms_cache");
       if (localData) {
         try {
@@ -51,7 +50,6 @@ const PrintPreview: React.FC = () => {
         } catch (e) {}
       }
 
-      // 2. Sync Cloud
       try {
         const [allForms, allUsers] = await Promise.all([
           storageService.getForms(),
@@ -159,11 +157,12 @@ const PrintPreview: React.FC = () => {
       </div>
 
       <div className="max-w-[21cm] mx-auto bg-white p-[1.5cm] min-h-[29.7cm] text-black text-[10px] leading-tight print:p-0 print:shadow-none shadow-2xl">
-        <div className="flex items-center justify-center space-x-4 mb-8">
-          <img src="logo.png" alt="Logo USTP" className="w-16 h-16 object-contain" />
+        <div className="flex items-center justify-center space-x-6 mb-8 border-b-2 border-slate-900 pb-6">
+          <Logo size="lg" />
           <div className="text-center">
-            <div className="font-bold text-xs uppercase">BORANG PERMOHONAN PERGERAKAN/ PINJAMAN ASET ALIH (KEW.PA-9)</div>
-            <div className="text-[9px] font-bold text-slate-500 uppercase">Unit Sumber dan Teknologi Pendidikan (USTP) PPD Batu Pahat</div>
+            <div className="font-bold text-[14px] uppercase mb-1">BORANG PERMOHONAN PERGERAKAN/ PINJAMAN ASET ALIH</div>
+            <div className="font-bold text-[16px] uppercase mb-1">(KEW.PA-9)</div>
+            <div className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Unit Sumber dan Teknologi Pendidikan (USTP) PPD Batu Pahat</div>
           </div>
         </div>
 

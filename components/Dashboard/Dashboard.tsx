@@ -61,15 +61,13 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="glass-card sticky top-0 z-40 px-6 h-20 flex items-center justify-between border-b border-slate-200">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-indigo-100 bg-white flex items-center justify-center shadow-md">
-            <img src="./logo.png" alt="USTP Logo" className="w-10 h-10 object-contain" onError={(e) => {
-              (e.target as HTMLImageElement).src = "https://ui-avatars.com/api/?name=USTP&background=4f46e5&color=fff";
-            }} />
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center shadow-lg">
+            <span className="text-white font-black text-xs tracking-tighter">USTP</span>
           </div>
           <div>
-            <h1 className="text-xl font-black text-slate-800 tracking-tight leading-none">Portal <span className="text-indigo-600">Pinjaman</span></h1>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">USTP PPD Batu Pahat</p>
+            <h1 className="text-lg font-black text-slate-800 tracking-tight leading-none">Portal <span className="text-indigo-600">Pinjaman</span></h1>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">PPD Batu Pahat</p>
           </div>
         </div>
 
