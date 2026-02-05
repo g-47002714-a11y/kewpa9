@@ -47,7 +47,7 @@ const Logo: React.FC<LogoProps> = ({ className = "", size = 'md' }) => {
   if (!currentLogo || error) {
     return (
       <div className={`${sizeMap[size]} ${className} relative flex items-center justify-center overflow-hidden rounded-full bg-slate-900 border-2 border-indigo-500/20 shadow-xl`}>
-        <span className={`${textMap[size]} font-black text-white tracking-tighter`}>USTP</span>
+        <span className={`${textMap[size]} font-black text-white tracking-tighter`}>USTP BP</span>
         <div className="absolute inset-0 bg-gradient-to-tr from-indigo-600/20 to-transparent"></div>
       </div>
     );
