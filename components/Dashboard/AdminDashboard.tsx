@@ -23,6 +23,7 @@ const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
   const [showBrandingModal, setShowBrandingModal] = useState(false);
   const [selectedForm, setSelectedForm] = useState<KEWPA9Form | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   const loadAllForms = useCallback(async () => {
     try {
@@ -52,17 +53,24 @@ const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
     returning: allForms.filter(f => f.status === LoanStatus.RETURNING).length
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        alert("Fail terlalu besar. Sila guna imej bawah 2MB.");
+      if (file.size > 1 * 1024 * 1024) {
+        alert("Fail terlalu besar. Sila guna imej bawah 1MB untuk prestasi Cloud yang stabil.");
         return;
       }
+      setIsUploadingLogo(true);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        storageService.saveCustomLogo(reader.result as string);
-        alert("Logo berjaya dikemaskini!");
+      reader.onloadend = async () => {
+        try {
+          await storageService.saveCustomLogo(reader.result as string);
+          alert("Logo berjaya dikemaskini dan disimpan ke Cloud!");
+        } catch (err) {
+          alert("Gagal menyimpan logo ke Cloud. Sila periksa sambungan.");
+        } finally {
+          setIsUploadingLogo(false);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -121,7 +129,6 @@ const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
 
       await storageService.saveForm(updatedForm);
 
-      // Kemaskini status aset dalam inventori
       const items = Array.isArray(selectedForm.items) ? selectedForm.items : [];
       for (const item of items) {
         let newAssetStatus: 'AVAILABLE' | 'LOANED' | 'MAINTENANCE' = 'AVAILABLE';
@@ -363,25 +370,37 @@ const AdminDashboard: React.FC<Props> = ({ user, onLogout }) => {
       {/* MODAL PENGURUSAN JENAMA */}
       {showBrandingModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setShowBrandingModal(false)}></div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => !isUploadingLogo && setShowBrandingModal(false)}></div>
           <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl relative z-10 p-10 overflow-hidden border border-slate-100">
             <div className="text-center mb-8">
               <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-emerald-600">
-                <i className="fas fa-palette text-2xl"></i>
+                <i className={`fas ${isUploadingLogo ? 'fa-spinner animate-spin' : 'fa-palette'} text-2xl`}></i>
               </div>
               <h2 className="text-2xl font-black text-slate-800 tracking-tight">Pengurusan Jenama</h2>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Kemaskini Identiti Visual Sistem</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Kemaskini Identiti Visual Global</p>
             </div>
 
             <div className="space-y-6">
               <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 text-center">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Pratonton Logo Semasa</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Pratonton Logo Terkini</p>
                 <div className="flex justify-center mb-6">
                   <Logo size="lg" />
                 </div>
                 <input type="file" ref={fileInputRef} onChange={handleLogoUpload} accept="image/*" className="hidden" />
-                <button onClick={() => fileInputRef.current?.click()} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:bg-indigo-600 transition-all active:scale-95 mb-3">Muat Naik Logo Baru</button>
-                <button onClick={() => { if(window.confirm('Set semula logo kepada asal?')) storageService.resetLogo(); }} className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:underline">Set Semula Logo Asal</button>
+                <button 
+                  disabled={isUploadingLogo}
+                  onClick={() => fileInputRef.current?.click()} 
+                  className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:bg-indigo-600 transition-all active:scale-95 mb-3 disabled:opacity-50"
+                >
+                  {isUploadingLogo ? 'Sedang Memuat Naik...' : 'Muat Naik Logo Baru (Cloud)'}
+                </button>
+                <button 
+                  disabled={isUploadingLogo}
+                  onClick={async () => { if(window.confirm('Set semula logo kepada asal di Cloud?')) await storageService.resetLogo(); }} 
+                  className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:underline disabled:opacity-50"
+                >
+                  Set Semula Logo Asal
+                </button>
               </div>
             </div>
 

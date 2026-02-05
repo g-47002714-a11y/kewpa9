@@ -7,7 +7,6 @@ const LOGO_STORAGE_KEY = "kewpa9_custom_logo";
 
 const fetchFromSheets = async (sheetName: string) => {
   const controller = new AbortController();
-  // Tingkatkan timeout ke 30 saat kerana Google Apps Script kadangkala mengambil masa untuk "bangun" (cold start)
   const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
@@ -22,13 +21,7 @@ const fetchFromSheets = async (sheetName: string) => {
     return Array.isArray(data) ? data : [];
   } catch (error: any) {
     clearTimeout(timeoutId);
-    
-    if (error.name === 'AbortError') {
-      console.error(`Gagal fetch sheet ${sheetName}: Masa tamat (Timeout 30s). Pelayan Google lambat bertindak.`);
-    } else {
-      console.error(`Gagal fetch sheet ${sheetName}:`, error.message || error);
-    }
-    
+    console.error(`Gagal fetch sheet ${sheetName}:`, error.message || error);
     return [];
   }
 };
@@ -36,7 +29,6 @@ const fetchFromSheets = async (sheetName: string) => {
 const postToSheets = async (sheetName: string, data: any, action: 'save' | 'delete' = 'save') => {
   try {
     const payload = { sheet: sheetName, action, data };
-    // Menggunakan mode 'no-cors' adalah standard untuk menghantar data ke Google Apps Script tanpa ralat preflight
     await fetch(SCRIPT_URL, {
       method: 'POST',
       mode: 'no-cors',
@@ -63,7 +55,6 @@ export const storageService = {
     const localData = localStorage.getItem(LOCAL_FORMS_KEY);
     const localForms: KEWPA9Form[] = localData ? JSON.parse(localData) : [];
     
-    // Gabungkan data cloud dan local cache
     const mergedMap = new Map<string, KEWPA9Form>();
     cloudForms.forEach(f => mergedMap.set(f.id, f));
     localForms.forEach(f => mergedMap.set(f.id, f));
@@ -102,15 +93,45 @@ export const storageService = {
   },
   deleteAsset: async (id: string) => postToSheets('assets', { id }, 'delete'),
 
-  saveCustomLogo: (base64Data: string) => {
+  // SISTEM PENGURUSAN SETTINGS (LOGO) DI CLOUD
+  syncLogoFromCloud: async () => {
+    try {
+      const settings = await fetchFromSheets('settings');
+      const logoSetting = settings.find((s: any) => s.key === 'system_logo');
+      if (logoSetting && logoSetting.value) {
+        localStorage.setItem(LOGO_STORAGE_KEY, logoSetting.value);
+        window.dispatchEvent(new Event('logoChanged'));
+        return logoSetting.value;
+      }
+    } catch (e) {
+      console.warn("Gagal sinkronisasi logo dari cloud.");
+    }
+    return null;
+  },
+
+  saveCustomLogo: async (base64Data: string) => {
+    // Simpan secara lokal untuk respons pantas
     localStorage.setItem(LOGO_STORAGE_KEY, base64Data);
     window.dispatchEvent(new Event('logoChanged'));
+    
+    // Simpan ke Cloud untuk simpanan kekal (Global)
+    // Nota: Pastikan sheet bernama 'settings' wujud di Google Sheets anda
+    try {
+      await postToSheets('settings', { key: 'system_logo', value: base64Data });
+    } catch (e) {
+      console.error("Gagal simpan logo ke Cloud.");
+    }
   },
+
   getCustomLogo: () => {
     return localStorage.getItem(LOGO_STORAGE_KEY);
   },
-  resetLogo: () => {
+
+  resetLogo: async () => {
     localStorage.removeItem(LOGO_STORAGE_KEY);
     window.dispatchEvent(new Event('logoChanged'));
+    try {
+      await postToSheets('settings', { key: 'system_logo' }, 'delete');
+    } catch (e) {}
   }
 };

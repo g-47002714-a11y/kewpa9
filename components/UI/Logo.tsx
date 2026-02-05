@@ -13,6 +13,14 @@ const Logo: React.FC<LogoProps> = ({ className = "", size = 'md' }) => {
   const [currentLogo, setCurrentLogo] = useState<string>(storageService.getCustomLogo() || LOGO_DATA);
 
   useEffect(() => {
+    // 1. Cuba dapatkan logo terkini dari Cloud semasa mount
+    const syncLogo = async () => {
+      const cloudLogo = await storageService.syncLogoFromCloud();
+      if (cloudLogo) setCurrentLogo(cloudLogo);
+    };
+    syncLogo();
+
+    // 2. Dengar perubahan logo jika admin tukar secara real-time
     const handleLogoChange = () => {
       setCurrentLogo(storageService.getCustomLogo() || LOGO_DATA);
       setError(false);
